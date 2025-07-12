@@ -8,8 +8,11 @@ import {
     IAddPersonInput,
     IMovieResponse,
     IPersonResponse,
-    IPaginatedResponse
-} from '../interfaces/movie.js'; // Import interfaces
+    IPaginatedResponse,
+    IConnectActorToMovieInput, 
+    IConnectDirectorToMovieInput, 
+    IRelationshipCreatedResponse
+} from '../interfaces/movie.js'; 
 import neo4j from 'neo4j-driver'; 
 
 /**
@@ -171,6 +174,85 @@ export async function listAllPeople(page: number = 1, limit: number = 10): Promi
             limit,
             totalItems,
             totalPages: Math.ceil(totalItems / limit)
+        };
+    } finally {
+        await session.close();
+    }
+}
+
+
+
+/**
+ * Connects an actor to a movie with their specific roles.
+ * @param {IConnectActorToMovieInput} input - Actor name, movie title, and roles.
+ * @returns {Promise<IRelationshipCreatedResponse>} Confirmation of the relationship.
+ */
+export async function connectActorToMovie(input: IConnectActorToMovieInput): Promise<IRelationshipCreatedResponse> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person {name: $actorName})
+            MATCH (m:Movie {title: $movieTitle})
+            MERGE (p)-[r:ACTED_IN]->(m)
+            ON CREATE SET r.roles = $roles
+            ON MATCH SET r.roles = $roles // Update roles if relationship already exists
+            RETURN p.name AS fromName, m.title AS toName, type(r) AS relationshipType, r.roles AS properties
+        `;
+        const result = await session.run(query, {
+            actorName: input.actorName,
+            movieTitle: input.movieTitle,
+            roles: input.roles
+        });
+
+        if (result.records.length === 0) {
+            // This scenario means either actor or movie wasn't found, or relationship couldn't be merged
+            throw new Error(`Failed to connect actor '${input.actorName}' to movie '${input.movieTitle}'. Ensure both exist.`);
+        }
+
+        const record = result.records[0];
+        return {
+            message: `Relationship ACTED_IN created/updated.`,
+            from: record.get('fromName'),
+            to: record.get('toName'),
+            type: record.get('relationshipType'),
+            properties: { roles: record.get('properties') }
+        };
+    } finally {
+        await session.close();
+    }
+}
+
+
+
+/**
+ * Connects a director to a movie.
+ * @param {IConnectDirectorToMovieInput} input - Director name and movie title.
+ * @returns {Promise<IRelationshipCreatedResponse>} Confirmation of the relationship.
+ */
+export async function connectDirectorToMovie(input: IConnectDirectorToMovieInput): Promise<IRelationshipCreatedResponse> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person {name: $directorName})
+            MATCH (m:Movie {title: $movieTitle})
+            MERGE (p)-[r:DIRECTED]->(m)
+            RETURN p.name AS fromName, m.title AS toName, type(r) AS relationshipType
+        `;
+        const result = await session.run(query, {
+            directorName: input.directorName,
+            movieTitle: input.movieTitle
+        });
+
+        if (result.records.length === 0) {
+            throw new Error(`Failed to connect director '${input.directorName}' to movie '${input.movieTitle}'. Ensure both exist.`);
+        }
+
+        const record = result.records[0];
+        return {
+            message: `Relationship DIRECTED created/updated.`,
+            from: record.get('fromName'),
+            to: record.get('toName'),
+            type: record.get('relationshipType')
         };
     } finally {
         await session.close();
