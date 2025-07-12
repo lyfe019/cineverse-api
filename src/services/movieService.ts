@@ -10,6 +10,7 @@ import {
     IPersonResponse,
     IPaginatedResponse
 } from '../interfaces/movie.js'; // Import interfaces
+import neo4j from 'neo4j-driver'; 
 
 /**
  * Adds a new movie or updates an existing one.
@@ -126,7 +127,7 @@ export async function listAllMovies(page: number = 1, limit: number = 10): Promi
         // Query to get paginated movies
         const moviesResult = await session.run(
             `MATCH (m:Movie) RETURN m ORDER BY m.title SKIP $skip LIMIT $limit`,
-            { skip, limit }
+            { skip: neo4j.int(skip), limit: neo4j.int(limit) } 
         );
         const movies = moviesResult.records.map(record => record.get('m').properties as IMovieResponse);
 
@@ -160,7 +161,7 @@ export async function listAllPeople(page: number = 1, limit: number = 10): Promi
         // Query to get paginated people
         const peopleResult = await session.run(
             `MATCH (p:Person) RETURN p ORDER BY p.name SKIP $skip LIMIT $limit`,
-            { skip, limit }
+            { skip: neo4j.int(skip), limit: neo4j.int(limit) } 
         );
         const people = peopleResult.records.map(record => record.get('p').properties as IPersonResponse);
 

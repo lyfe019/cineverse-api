@@ -1,27 +1,23 @@
-// src/app.ts
-
 import express from 'express';
-import { errorHandler } from './middleware/errorHandler.js'; // Note the .js extension for ES Modules
+import { errorHandler } from './middleware/errorHandler.js';
+import apiRoutes from './routes/index.js'; // Import your aggregated API routes
 
 const app = express();
 
 // --- Global Middleware ---
-// Enable JSON body parsing for incoming requests
 app.use(express.json());
+// app.use(cors()); // Uncomment if you installed and need cors
 
-// Enable CORS (Cross-Origin Resource Sharing) if your frontend is on a different domain
-// For now, we'll keep it simple. If you need it, you'd install 'cors' and use it like:
-// import cors from 'cors';
-// app.use(cors());
+// --- API Routes ---
+// All routes defined in src/routes/index.ts will be mounted here
+app.use('/api', apiRoutes); // All your API endpoints will now be prefixed with /api
 
-// --- Routes (will be added in subsequent commits) ---
-// For now, a simple health check route
+// --- Health Check Route (kept for quick testing) ---
 app.get('/', (req, res) => {
     res.status(200).json({ message: 'CineVerse API is running!' });
 });
 
 // --- Error Handling Middleware ---
-// This should be the last middleware added
 app.use(errorHandler);
 
-export default app; // Export the Express app instance
+export default app;
