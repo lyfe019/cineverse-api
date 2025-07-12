@@ -24,4 +24,12 @@ router.post('/actors/:actorName/act-in/:movieTitle', movieController.connectActo
 router.post('/directors/:directorName/direct/:movieTitle', movieController.connectDirectorToMovie);
 
 
+router.post('/genres', movieController.addGenre);
+router.post('/movies/:movieTitle/genres', movieController.connectMovieToGenre); // Connect movie to one or more genres
+
+// --- Studio Routes (NEW) ---
+router.post('/studios', movieController.addStudio);
+router.post('/studios/:studioName/produces/:movieTitle', movieController.connectStudioToMovie); // Connect studio to movie
+
+
 export default router;

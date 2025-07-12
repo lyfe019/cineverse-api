@@ -1,3 +1,5 @@
+// src/interfaces/movie.ts
+
 // --- Node Interfaces (Representing Data in the Graph) ---
 
 export interface IPerson {
@@ -62,11 +64,13 @@ export interface IConnectDirectorToMovieInput {
     movieTitle: string;
 }
 
+// Corrected names and ensured export
 export interface IConnectMovieToGenreInput {
     movieTitle: string;
     genreNames: string[]; // Allows connecting to multiple genres at once
 }
 
+// Corrected names and ensured export
 export interface IConnectStudioToMovieInput {
     studioName: string;
     movieTitle: string;

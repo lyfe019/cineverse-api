@@ -11,7 +11,13 @@ import {
     IPaginatedResponse,
     IConnectActorToMovieInput, 
     IConnectDirectorToMovieInput, 
-    IRelationshipCreatedResponse
+    IRelationshipCreatedResponse,
+        IAddGenreInput,         
+  IConnectMovieToGenreInput,    
+    IAddStudioInput,         // <-- NEW IMPORT
+        IConnectStudioToMovieInput,    // <-- NEW IMPORT
+    IGenreResponse,          // <-- NEW IMPORT
+    IStudioResponse          // <-- NEW IMPORT
 } from '../interfaces/movie.js'; 
 import neo4j from 'neo4j-driver'; 
 
@@ -250,6 +256,122 @@ export async function connectDirectorToMovie(input: IConnectDirectorToMovieInput
         const record = result.records[0];
         return {
             message: `Relationship DIRECTED created/updated.`,
+            from: record.get('fromName'),
+            to: record.get('toName'),
+            type: record.get('relationshipType')
+        };
+    } finally {
+        await session.close();
+    }
+}
+
+
+
+/**
+ * Adds a new genre or updates an existing one.
+ * @param {IAddGenreInput} input - Genre details.
+ * @returns {Promise<IGenreResponse>} The created or updated genre.
+ */
+export async function addGenre(input: IAddGenreInput): Promise<IGenreResponse> {
+    const session = getSession();
+    try {
+        const query = `
+            MERGE (g:Genre {name: $name})
+            RETURN g
+        `;
+        const result = await session.run(query, { name: input.name });
+        const genreNode = result.records[0].get('g');
+        return genreNode.properties as IGenreResponse;
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Connects a movie to one or more genres.
+ * @param {IConnectMovieToGenreInput} input - Movie title and an array of genre names.
+ * @returns {Promise<IRelationshipCreatedResponse[]>} Confirmation of the relationships.
+ */
+export async function connectMovieToGenre(input: IConnectMovieToGenreInput): Promise<IRelationshipCreatedResponse[]> {
+    const session = getSession();
+    const results: IRelationshipCreatedResponse[] = [];
+    try {
+        const query = `
+            MATCH (m:Movie {title: $movieTitle})
+            UNWIND $genreNames AS genreName
+            MERGE (g:Genre {name: genreName}) // MERGE genre to ensure it exists
+            MERGE (m)-[r:HAS_GENRE]->(g)
+            RETURN m.title AS fromName, g.name AS toName, type(r) AS relationshipType
+        `;
+        const result = await session.run(query, {
+            movieTitle: input.movieTitle,
+            genreNames: input.genreNames
+        });
+
+        if (result.records.length === 0) {
+             throw new Error(`Failed to connect movie '${input.movieTitle}' to genres. Ensure movie exists.`);
+        }
+
+        result.records.forEach(record => {
+            results.push({
+                message: `Relationship HAS_GENRE created/updated.`,
+                from: record.get('fromName'),
+                to: record.get('toName'),
+                type: record.get('relationshipType')
+            });
+        });
+        return results;
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Adds a new studio or updates an existing one.
+ * @param {IAddStudioInput} input - Studio details.
+ * @returns {Promise<IStudioResponse>} The created or updated studio.
+ */
+export async function addStudio(input: IAddStudioInput): Promise<IStudioResponse> {
+    const session = getSession();
+    try {
+        const query = `
+            MERGE (s:Studio {name: $name})
+            RETURN s
+        `;
+        const result = await session.run(query, { name: input.name });
+        const studioNode = result.records[0].get('s');
+        return studioNode.properties as IStudioResponse;
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Connects a studio to a movie it produced.
+ * @param {IConnectStudioToMovieInput} input - Studio name and movie title.
+ * @returns {Promise<IRelationshipCreatedResponse>} Confirmation of the relationship.
+ */
+export async function connectStudioToMovie(input: IConnectStudioToMovieInput): Promise<IRelationshipCreatedResponse> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (s:Studio {name: $studioName})
+            MATCH (m:Movie {title: $movieTitle})
+            MERGE (s)-[r:PRODUCED]->(m)
+            RETURN s.name AS fromName, m.title AS toName, type(r) AS relationshipType
+        `;
+        const result = await session.run(query, {
+            studioName: input.studioName,
+            movieTitle: input.movieTitle
+        });
+
+        if (result.records.length === 0) {
+            throw new Error(`Failed to connect studio '${input.studioName}' to movie '${input.movieTitle}'. Ensure both exist.`);
+        }
+
+        const record = result.records[0];
+        return {
+            message: `Relationship PRODUCED created/updated.`,
             from: record.get('fromName'),
             to: record.get('toName'),
             type: record.get('relationshipType')

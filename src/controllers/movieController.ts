@@ -1,11 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import * as movieService from '../services/movieService.js'; // Import all functions from movieService
-import { IAddMovieInput, IAddPersonInput,
-        IConnectActorToMovieInput, 
-    IConnectDirectorToMovieInput 
-
-
-} from '../interfaces/movie.js'; // Import input interfaces
+import {
+    IAddMovieInput,
+    IAddPersonInput,
+    IConnectActorToMovieInput,
+    IConnectDirectorToMovieInput,
+    IAddGenreInput,
+    IConnectMovieToGenreInput, // <-- CORRECTED IMPORT NAME
+    IAddStudioInput,
+    IConnectStudioToMovieInput // <-- CORRECTED IMPORT NAME
+} from '../interfaces/movie.js';
 
 // --- Movie Controllers ---
 
@@ -122,6 +126,76 @@ export const connectDirectorToMovie = async (req: Request, res: Response, next: 
 
         const result = await movieService.connectDirectorToMovie({ directorName, movieTitle });
         res.status(201).json(result); // 201 Created
+    } catch (error) {
+        next(error);
+    }
+};
+
+// --- Genre Controllers ---
+
+export const addGenre = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const input: IAddGenreInput = req.body;
+        if (!input.name) {
+            return res.status(400).json({ message: 'Genre name is required.' });
+        }
+        const genre = await movieService.addGenre(input);
+        res.status(201).json(genre);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const connectMovieToGenre = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { movieTitle } = req.params;
+        const { genreNames } = req.body;
+
+        // Create an object that matches IConnectMovieToGenreInput
+        const input: IConnectMovieToGenreInput = { movieTitle, genreNames }; // <--- CORRECTED INPUT TYPE
+
+        if (!input.genreNames || !Array.isArray(input.genreNames) || input.genreNames.length === 0) {
+            return res.status(400).json({ message: 'Genre names (as an array of strings) are required.' });
+        }
+        if (typeof input.movieTitle !== 'string') {
+             return res.status(400).json({ message: 'Movie title must be a string.' });
+        }
+
+        const results = await movieService.connectMovieToGenre(input); // Pass the correctly typed input
+        res.status(201).json(results);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// --- Studio Controllers ---
+
+export const addStudio = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const input: IAddStudioInput = req.body;
+        if (!input.name) {
+            return res.status(400).json({ message: 'Studio name is required.' });
+        }
+        const studio = await movieService.addStudio(input);
+        res.status(201).json(studio);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const connectStudioToMovie = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { studioName, movieTitle } = req.params;
+
+        // Create an object that matches IConnectStudioToMovieInput
+        const input: IConnectStudioToMovieInput = { studioName, movieTitle }; // <--- CORRECTED INPUT TYPE
+
+        if (typeof input.studioName !== 'string' || typeof input.movieTitle !== 'string') {
+             return res.status(400).json({ message: 'Studio name and movie title must be strings.' });
+        }
+
+        const result = await movieService.connectStudioToMovie(input); // Pass the correctly typed input
+        res.status(201).json(result);
     } catch (error) {
         next(error);
     }
