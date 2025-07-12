@@ -15,4 +15,13 @@ router.post('/persons', movieController.addPerson);
 router.get('/persons/:name', movieController.getPersonByName);
 router.get('/persons', movieController.listAllPeople); // /persons?page=1&limit=10
 
+
+// --- Relationship Creation Routes ---
+// POST /api/actors/:actorName/act-in/:movieTitle
+router.post('/actors/:actorName/act-in/:movieTitle', movieController.connectActorToMovie);
+
+// POST /api/directors/:directorName/direct/:movieTitle
+router.post('/directors/:directorName/direct/:movieTitle', movieController.connectDirectorToMovie);
+
+
 export default router;

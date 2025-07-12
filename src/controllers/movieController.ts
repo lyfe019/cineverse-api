@@ -1,6 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import * as movieService from '../services/movieService.js'; // Import all functions from movieService
-import { IAddMovieInput, IAddPersonInput } from '../interfaces/movie.js'; // Import input interfaces
+import { IAddMovieInput, IAddPersonInput,
+        IConnectActorToMovieInput, 
+    IConnectDirectorToMovieInput 
+
+
+} from '../interfaces/movie.js'; // Import input interfaces
 
 // --- Movie Controllers ---
 
@@ -79,6 +84,44 @@ export const listAllPeople = async (req: Request, res: Response, next: NextFunct
         const limit = parseInt(req.query.limit as string) || 10;
         const people = await movieService.listAllPeople(page, limit);
         res.status(200).json(people);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// --- Relationship Controllers ---
+
+export const connectActorToMovie = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { actorName, movieTitle } = req.params;
+        const { roles } = req.body; // Roles come from the request body
+
+        // Basic validation
+        if (!roles || !Array.isArray(roles) || roles.length === 0) {
+            return res.status(400).json({ message: 'Roles (as an array of strings) are required.' });
+        }
+        if (typeof actorName !== 'string' || typeof movieTitle !== 'string') {
+             return res.status(400).json({ message: 'Actor name and movie title must be strings.' });
+        }
+
+        const result = await movieService.connectActorToMovie({ actorName, movieTitle, roles });
+        res.status(201).json(result); // 201 Created
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const connectDirectorToMovie = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { directorName, movieTitle } = req.params;
+
+        // Basic validation
+        if (typeof directorName !== 'string' || typeof movieTitle !== 'string') {
+             return res.status(400).json({ message: 'Director name and movie title must be strings.' });
+        }
+
+        const result = await movieService.connectDirectorToMovie({ directorName, movieTitle });
+        res.status(201).json(result); // 201 Created
     } catch (error) {
         next(error);
     }
