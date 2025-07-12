@@ -1,5 +1,3 @@
-// src/interfaces/movie.ts
-
 // --- Node Interfaces (Representing Data in the Graph) ---
 
 export interface IPerson {
