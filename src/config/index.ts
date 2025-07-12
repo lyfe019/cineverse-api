@@ -1,5 +1,3 @@
-// src/config/index.ts
-
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -22,10 +20,10 @@ export const config = {
     neo4j: {
         uri: process.env.NEO4J_URI || 'bolt://127.0.0.1:7687',
         user: process.env.NEO4J_USER || 'neo4j',
-        password: process.env.NEO4J_PASSWORD || 'ebenezer000', // <<< IMPORTANT: Provide a default or ensure it's in .env
+        password: process.env.NEO4J_PASSWORD || 'ebenezer000', 
         database: process.env.NEO4J_DATABASE || 'neo4j', // Default to 'neo4j'
     },
-    // Add other configurations here as your app grows (e.g., JWT secret, API keys)
+    
 };
 
 // Basic validation for critical Neo4j credentials
