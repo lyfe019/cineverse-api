@@ -14,10 +14,13 @@ import {
     IRelationshipCreatedResponse,
         IAddGenreInput,         
   IConnectMovieToGenreInput,    
-    IAddStudioInput,         // <-- NEW IMPORT
-        IConnectStudioToMovieInput,    // <-- NEW IMPORT
-    IGenreResponse,          // <-- NEW IMPORT
-    IStudioResponse          // <-- NEW IMPORT
+    IAddStudioInput,         
+        IConnectStudioToMovieInput,    
+    IGenreResponse,          
+    IStudioResponse,
+        IDeleteMovieInput,        
+    IDeletePersonInput,       
+    IDeleteRelationshipInput            
 } from '../interfaces/movie.js'; 
 import neo4j from 'neo4j-driver'; 
 
@@ -376,6 +379,83 @@ export async function connectStudioToMovie(input: IConnectStudioToMovieInput): P
             to: record.get('toName'),
             type: record.get('relationshipType')
         };
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Deletes a movie node and all its relationships.
+ * @param {string} title - The title of the movie to delete.
+ * @returns {Promise<string>} A confirmation message.
+ */
+export async function deleteMovie(title: string): Promise<string> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (m:Movie {title: $title})
+            DETACH DELETE m
+        `;
+        const result = await session.run(query, { title });
+        // CORRECTED: Assert result.summary.counters to any
+        if ((result.summary.counters as any).nodesDeleted().toNumber() === 0) { // <--- MODIFIED HERE
+            throw new Error(`Movie with title '${title}' not found or could not be deleted.`);
+        }
+        return `Movie '${title}' and its relationships deleted successfully.`;
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Deletes a person node and all their relationships.
+ * @param {string} name - The name of the person to delete.
+ * @returns {Promise<string>} A confirmation message.
+ */
+export async function deletePerson(name: string): Promise<string> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person {name: $name})
+            DETACH DELETE p
+        `;
+        const result = await session.run(query, { name });
+        // CORRECTED: Assert result.summary.counters to any
+        if ((result.summary.counters as any).nodesDeleted().toNumber() === 0) { // <--- MODIFIED HERE
+            throw new Error(`Person with name '${name}' not found or could not be deleted.`);
+        }
+        return `Person '${name}' and their relationships deleted successfully.`;
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Deletes a specific relationship between two entities.
+ * @param {IDeleteRelationshipInput} input - Details to identify the relationship.
+ * @returns {Promise<string>} A confirmation message.
+ */
+export async function deleteRelationship(input: IDeleteRelationshipInput): Promise<string> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (from)-[r]->(to)
+            WHERE from.name = $fromName
+              AND to.title = $toName
+              AND type(r) = $relationshipType
+            DELETE r
+        `;
+        const result = await session.run(query, {
+            fromName: input.fromName,
+            toName: input.toName,
+            relationshipType: input.relationshipType
+        });
+
+        // CORRECTED: Assert result.summary.counters to any
+        if ((result.summary.counters as any).relationshipsDeleted().toNumber() === 0) { // <--- MODIFIED HERE
+            throw new Error(`Relationship of type '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' not found or could not be deleted.`);
+        }
+        return `Relationship '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' deleted successfully.`;
     } finally {
         await session.close();
     }
