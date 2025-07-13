@@ -429,3 +429,40 @@ export const getShortestPathBetweenActors = async (req: Request, res: Response, 
         next(error)
     }
 };
+
+
+// --- Advanced Recommendation Controllers ---
+
+export const recommendMoviesBySharedGenres = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { movieTitle } = req.params;
+        if (!movieTitle || typeof movieTitle !== 'string') {
+            return res.status(400).json({ message: 'Movie title is required for genre-based recommendations.' });
+        }
+        const recommendations = await movieService.recommendMoviesBySharedGenres(movieTitle);
+        if (recommendations.length > 0) {
+            res.status(200).json(recommendations);
+        } else {
+            res.status(404).json({ message: `No genre-based recommendations found for '${movieTitle}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const recommendMoviesBySharedCastCrew = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { movieTitle } = req.params;
+        if (!movieTitle || typeof movieTitle !== 'string') {
+            return res.status(400).json({ message: 'Movie title is required for cast/crew-based recommendations.' });
+        }
+        const recommendations = await movieService.recommendMoviesBySharedCastCrew(movieTitle);
+        if (recommendations.length > 0) {
+            res.status(200).json(recommendations);
+        } else {
+            res.status(404).json({ message: `No cast/crew-based recommendations found for '${movieTitle}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};

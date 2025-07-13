@@ -74,5 +74,11 @@ router.get('/actors/:actor1Name/shared-movies/:actor2Name', movieController.getS
 router.get('/actors/:actor1Name/path-to/:actor2Name', movieController.getShortestPathBetweenActors);
 
 
+// --- Advanced Recommendation Routes (NEW) ---
+// GET /api/movies/:movieTitle/recommendations/genre
+router.get('/movies/:movieTitle/recommendations/genre', movieController.recommendMoviesBySharedGenres);
+
+// GET /api/movies/:movieTitle/recommendations/cast-crew
+router.get('/movies/:movieTitle/recommendations/cast-crew', movieController.recommendMoviesBySharedCastCrew);
 
 export default router
