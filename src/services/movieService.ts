@@ -22,7 +22,11 @@ import {
     IDeletePersonInput,       
     IDeleteRelationshipInput,
     IMovieByActorResponse,
-    IActorInMovieResponse            
+    IActorInMovieResponse,
+        ICoActorResponse,       
+    ISharedMovieResponse,   
+    IShortestPathResponse,  
+    IPathSegment                        
 } from '../interfaces/movie.js'; 
 import neo4j from 'neo4j-driver'; 
 
@@ -617,6 +621,139 @@ export async function getStudioOfMovie(movieTitle: string): Promise<IStudioRespo
             return studioNode.properties as IStudioResponse;
         }
         return null;
+    } finally {
+        await session.close();
+    }
+}
+
+
+
+
+// --- Graph-Powered Discovery & Insights Services ---
+
+/**
+ * Finds other actors who have acted in the same movie as a given actor.
+ * @param {string} actorName - The name of the actor.
+ * @returns {Promise<ICoActorResponse[]>} A list of co-actors.
+ */
+export async function getCoActors(actorName: string): Promise<ICoActorResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p1:Person {name: $actorName})-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(p2:Person)
+            WHERE p1 <> p2 // Exclude the original actor
+            RETURN p2.name AS name, count(m) AS sharedMoviesCount
+            ORDER BY sharedMoviesCount DESC, name ASC
+        `;
+        const result = await session.run(query, { actorName });
+        return result.records.map(record => ({
+            name: record.get('name'),
+            sharedMoviesCount: record.get('sharedMoviesCount').toNumber() // Convert Neo4j Integer to JS number
+        })) as ICoActorResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Finds all movies that two specific actors have acted in together.
+ * @param {string} actor1Name - The name of the first actor.
+ * @param {string} actor2Name - The name of the second actor.
+ * @returns {Promise<ISharedMovieResponse[]>} A list of shared movie titles.
+ */
+export async function getSharedMoviesBetweenActors(actor1Name: string, actor2Name: string): Promise<ISharedMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p1:Person {name: $actor1Name})-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(p2:Person {name: $actor2Name})
+            RETURN m.title AS title, m.released AS released, m.tagline AS tagline
+            ORDER BY m.title ASC
+        `;
+        const result = await session.run(query, { actor1Name, actor2Name });
+        return result.records.map(record => ({
+            title: record.get('title'),
+            released: record.get('released'),
+            tagline: record.get('tagline')
+        })) as ISharedMovieResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Finds the shortest chain of movies and actors connecting two specified actors.
+ * @param {string} actor1Name - The name of the first actor.
+ * @param {string} actor2Name - The name of the second actor.
+ * @returns {Promise<IShortestPathResponse | null>} The path details or null if no path found.
+ */
+export async function getShortestPathBetweenActors(actor1Name: string, actor2Name: string): Promise<IShortestPathResponse | null> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p1:Person {name: $actor1Name}), (p2:Person {name: $actor2Name})
+            CALL apoc.algo.shortestPath(p1, p2, 'ACTED_IN|DIRECTED>', 5) YIELD path
+            // Note: apoc.algo.shortestPath is part of APOC library. Ensure APOC is installed on your Neo4j instance.
+            // If APOC is not installed, a pure Cypher path query would be more complex but possible.
+            RETURN path
+        `;
+        const result = await session.run(query, { actor1Name, actor2Name });
+
+        if (result.records.length === 0) {
+            return null; // No path found
+        }
+
+        const path = result.records[0].get('path');
+        if (!path) {
+            return null; // Should not happen if records.length > 0 but good defensive check
+        }
+
+        const pathSegments: IPathSegment[] = [];
+
+        // Iterate through nodes and relationships in the path
+        for (let i = 0; i < path.segments.length; i++) {
+            const segment = path.segments[i];
+
+            // Add start node of the segment
+            const startNode = segment.start;
+            pathSegments.push({
+                type: 'node',
+                label: startNode.labels[0], // Assuming one primary label
+                name: startNode.properties.name,
+                title: startNode.properties.title
+            });
+
+            // Add relationship of the segment
+            const relationship = segment.relationship;
+            pathSegments.push({
+                type: 'relationship',
+                relationshipType: relationship.type,
+                roles: (relationship.properties as any).roles // Cast to any to access roles property
+            });
+
+            // If this is the last segment, add its end node
+            if (i === path.segments.length - 1) {
+                const endNode = segment.end;
+                pathSegments.push({
+                    type: 'node',
+                    label: endNode.labels[0],
+                    name: endNode.properties.name,
+                    title: endNode.properties.title
+                });
+            }
+        }
+
+        return {
+            path: pathSegments,
+            length: path.length // Path length is a Neo4j Integer, but JavaScript handles it here
+        };
+
+    } catch (error) {
+        console.error(`Error finding shortest path between ${actor1Name} and ${actor2Name}:`, error);
+        // Check if error is related to APOC not being installed
+        if (error instanceof neo4j.Neo4jError && error.code === 'Neo.ClientError.Procedure.ProcedureNotFound') {
+            throw new Error("APOC library not installed or configured on Neo4j. Shortest path feature requires APOC. " + error.message);
+        }
+        throw error; // Re-throw other errors
     } finally {
         await session.close();
     }
