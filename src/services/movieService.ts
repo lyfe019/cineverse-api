@@ -20,7 +20,9 @@ import {
     IStudioResponse,
     IDeleteMovieInput,        
     IDeletePersonInput,       
-    IDeleteRelationshipInput            
+    IDeleteRelationshipInput,
+    IMovieByActorResponse,
+    IActorInMovieResponse            
 } from '../interfaces/movie.js'; 
 import neo4j from 'neo4j-driver'; 
 
@@ -462,6 +464,73 @@ export async function deleteRelationship(input: IDeleteRelationshipInput): Promi
             throw new Error(`Relationship of type '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' not found or could not be deleted.`);
         }
         return `Relationship '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' deleted successfully.`;
+    } finally {
+        await session.close();
+    }
+}
+
+
+
+/**
+ * Retrieves all movies an actor has acted in, including their roles.
+ * @param {string} actorName - The name of the actor.
+ * @returns {Promise<IMovieByActorResponse[]>} A list of movies with roles.
+ */
+export async function getMoviesByActor(actorName: string): Promise<IMovieByActorResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person {name: $actorName})-[:ACTED_IN]->(m:Movie)
+            RETURN m.title AS title, m.released AS released, m.tagline AS tagline, r.roles AS roles
+        `;
+        const result = await session.run(query, { actorName });
+        return result.records.map(record => ({
+            title: record.get('title'),
+            released: record.get('released'),
+            tagline: record.get('tagline'),
+            roles: record.get('roles') // Roles from the relationship property
+        })) as IMovieByActorResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Retrieves all actors who acted in a specific movie, including their roles.
+ * @param {string} movieTitle - The title of the movie.
+ * @returns {Promise<IActorInMovieResponse[]>} A list of actors with their roles in the movie.
+ */
+export async function getActorsInMovie(movieTitle: string): Promise<IActorInMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person)-[r:ACTED_IN]->(m:Movie {title: $movieTitle})
+            RETURN p.name AS actorName, r.roles AS roles
+        `;
+        const result = await session.run(query, { movieTitle });
+        return result.records.map(record => ({
+            actorName: record.get('actorName'),
+            roles: record.get('roles')
+        })) as IActorInMovieResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Retrieves all movies a person has directed.
+ * @param {string} directorName - The name of the director.
+ * @returns {Promise<IMovieResponse[]>} A list of movies directed by the person.
+ */
+export async function getMoviesDirectedByPerson(directorName: string): Promise<IMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person {name: $directorName})-[:DIRECTED]->(m:Movie)
+            RETURN m.title AS title, m.released AS released, m.tagline AS tagline
+        `;
+        const result = await session.run(query, { directorName });
+        return result.records.map(record => record.get('m').properties as IMovieResponse);
     } finally {
         await session.close();
     }
