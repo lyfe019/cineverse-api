@@ -49,4 +49,18 @@ router.get('/movies/:movieTitle/actors', movieController.getActorsInMovie);
 router.get('/directors/:directorName/movies', movieController.getMoviesDirectedByPerson);
 
 
+// --- New Relationship Exploration Routes (Genres, Studios - NEW) ---
+// GET /api/genres/:genreName/movies
+router.get('/genres/:genreName/movies', movieController.getMoviesByGenre);
+
+// GET /api/studios/:studioName/movies
+router.get('/studios/:studioName/movies', movieController.getMoviesByStudio);
+
+// GET /api/movies/:movieTitle/genres
+router.get('/movies/:movieTitle/genres', movieController.getGenresOfMovie);
+
+// GET /api/movies/:movieTitle/studio
+router.get('/movies/:movieTitle/studio', movieController.getStudioOfMovie);
+
+
 export default router

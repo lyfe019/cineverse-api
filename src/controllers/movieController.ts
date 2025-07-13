@@ -304,3 +304,74 @@ export const getMoviesDirectedByPerson = async (req: Request, res: Response, nex
         next(error);
     }
 };
+
+
+// --- New Relationship Exploration Controllers (Genres, Studios) ---
+
+export const getMoviesByGenre = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { genreName } = req.params;
+        if (!genreName || typeof genreName !== 'string') {
+            return res.status(400).json({ message: 'Genre name is required.' });
+        }
+        const movies = await movieService.getMoviesByGenre(genreName);
+        if (movies.length > 0) {
+            res.status(200).json(movies);
+        } else {
+            res.status(404).json({ message: `No movies found for genre '${genreName}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMoviesByStudio = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { studioName } = req.params;
+        if (!studioName || typeof studioName !== 'string') {
+            return res.status(400).json({ message: 'Studio name is required.' });
+        }
+        const movies = await movieService.getMoviesByStudio(studioName);
+        if (movies.length > 0) {
+            res.status(200).json(movies);
+        } else {
+            res.status(404).json({ message: `No movies found for studio '${studioName}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getGenresOfMovie = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { movieTitle } = req.params;
+        if (!movieTitle || typeof movieTitle !== 'string') {
+            return res.status(400).json({ message: 'Movie title is required.' });
+        }
+        const genres = await movieService.getGenresOfMovie(movieTitle);
+        if (genres.length > 0) {
+            res.status(200).json(genres);
+        } else {
+            res.status(404).json({ message: `No genres found for movie '${movieTitle}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getStudioOfMovie = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { movieTitle } = req.params;
+        if (!movieTitle || typeof movieTitle !== 'string') {
+            return res.status(400).json({ message: 'Movie title is required.' });
+        }
+        const studio = await movieService.getStudioOfMovie(movieTitle);
+        if (studio) {
+            res.status(200).json(studio);
+        } else {
+            res.status(404).json({ message: `No studio found for movie '${movieTitle}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
