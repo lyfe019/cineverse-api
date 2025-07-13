@@ -538,3 +538,86 @@ export async function getMoviesDirectedByPerson(directorName: string): Promise<I
         await session.close();
     }
 }
+
+
+
+/**
+ * Retrieves all movies belonging to a specific genre.
+ * @param {string} genreName - The name of the genre.
+ * @returns {Promise<IMovieResponse[]>} A list of movies in that genre.
+ */
+export async function getMoviesByGenre(genreName: string): Promise<IMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (m:Movie)-[:HAS_GENRE]->(g:Genre {name: $genreName})
+            RETURN m
+        `;
+        const result = await session.run(query, { genreName });
+        return result.records.map(record => record.get('m').properties as IMovieResponse);
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Retrieves all movies produced by a specific studio.
+ * @param {string} studioName - The name of the studio.
+ * @returns {Promise<IMovieResponse[]>} A list of movies produced by that studio.
+ */
+export async function getMoviesByStudio(studioName: string): Promise<IMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (s:Studio {name: $studioName})-[:PRODUCED]->(m:Movie)
+            RETURN m
+        `;
+        const result = await session.run(query, { studioName });
+        return result.records.map(record => record.get('m').properties as IMovieResponse);
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Retrieves all genres associated with a specific movie.
+ * @param {string} movieTitle - The title of the movie.
+ * @returns {Promise<IGenreResponse[]>} A list of genres for the movie.
+ */
+export async function getGenresOfMovie(movieTitle: string): Promise<IGenreResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (m:Movie {title: $movieTitle})-[:HAS_GENRE]->(g:Genre)
+            RETURN g
+        `;
+        const result = await session.run(query, { movieTitle });
+        return result.records.map(record => record.get('g').properties as IGenreResponse);
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Retrieves the studio that produced a specific movie.
+ * Note: Assumes a movie is produced by at most one studio for simplicity.
+ * @param {string} movieTitle - The title of the movie.
+ * @returns {Promise<IStudioResponse | null>} The studio details or null if not found.
+ */
+export async function getStudioOfMovie(movieTitle: string): Promise<IStudioResponse | null> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (s:Studio)-[:PRODUCED]->(m:Movie {title: $movieTitle})
+            RETURN s
+        `;
+        const result = await session.run(query, { movieTitle });
+        if (result.records.length > 0) {
+            const studioNode = result.records[0].get('s');
+            return studioNode.properties as IStudioResponse;
+        }
+        return null;
+    } finally {
+        await session.close();
+    }
+}
