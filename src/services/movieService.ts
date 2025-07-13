@@ -18,7 +18,7 @@ import {
         IConnectStudioToMovieInput,    
     IGenreResponse,          
     IStudioResponse,
-        IDeleteMovieInput,        
+    IDeleteMovieInput,        
     IDeletePersonInput,       
     IDeleteRelationshipInput            
 } from '../interfaces/movie.js'; 
@@ -380,9 +380,10 @@ export async function connectStudioToMovie(input: IConnectStudioToMovieInput): P
             type: record.get('relationshipType')
         };
     } finally {
-        await session.close();
+        await session.close()
     }
 }
+
 
 /**
  * Deletes a movie node and all its relationships.
@@ -397,8 +398,9 @@ export async function deleteMovie(title: string): Promise<string> {
             DETACH DELETE m
         `;
         const result = await session.run(query, { title });
-        // CORRECTED: Assert result.summary.counters to any
-        if ((result.summary.counters as any).nodesDeleted().toNumber() === 0) { // <--- MODIFIED HERE
+
+        // Robust check: If no updates (including deletions) occurred, it means the node wasn't found.
+        if (!result.summary.updateStatistics.containsUpdates()) {
             throw new Error(`Movie with title '${title}' not found or could not be deleted.`);
         }
         return `Movie '${title}' and its relationships deleted successfully.`;
@@ -420,8 +422,9 @@ export async function deletePerson(name: string): Promise<string> {
             DETACH DELETE p
         `;
         const result = await session.run(query, { name });
-        // CORRECTED: Assert result.summary.counters to any
-        if ((result.summary.counters as any).nodesDeleted().toNumber() === 0) { // <--- MODIFIED HERE
+
+        // Robust check: If no updates (including deletions) occurred, it means the node wasn't found.
+        if (!result.summary.updateStatistics.containsUpdates()) {
             throw new Error(`Person with name '${name}' not found or could not be deleted.`);
         }
         return `Person '${name}' and their relationships deleted successfully.`;
@@ -432,6 +435,9 @@ export async function deletePerson(name: string): Promise<string> {
 
 /**
  * Deletes a specific relationship between two entities.
+ * Note: This implementation assumes 'from' is a Person and 'to' is a Movie
+ * and uses their unique names to identify them. For more generic deletion,
+ * you might need to pass node IDs or more specific labels/properties.
  * @param {IDeleteRelationshipInput} input - Details to identify the relationship.
  * @returns {Promise<string>} A confirmation message.
  */
@@ -451,8 +457,8 @@ export async function deleteRelationship(input: IDeleteRelationshipInput): Promi
             relationshipType: input.relationshipType
         });
 
-        // CORRECTED: Assert result.summary.counters to any
-        if ((result.summary.counters as any).relationshipsDeleted().toNumber() === 0) { // <--- MODIFIED HERE
+        // Robust check: If no updates (including deletions) occurred, it means the relationship wasn't found.
+        if (!result.summary.updateStatistics.containsUpdates()) {
             throw new Error(`Relationship of type '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' not found or could not be deleted.`);
         }
         return `Relationship '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' deleted successfully.`;

@@ -6,9 +6,12 @@ import {
     IConnectActorToMovieInput,
     IConnectDirectorToMovieInput,
     IAddGenreInput,
-    IConnectMovieToGenreInput, // <-- CORRECTED IMPORT NAME
+    IConnectMovieToGenreInput, 
     IAddStudioInput,
-    IConnectStudioToMovieInput // <-- CORRECTED IMPORT NAME
+    IConnectStudioToMovieInput,
+        IDeleteMovieInput,        
+    IDeletePersonInput,       
+    IDeleteRelationshipInput  
 } from '../interfaces/movie.js';
 
 // --- Movie Controllers ---
@@ -196,6 +199,53 @@ export const connectStudioToMovie = async (req: Request, res: Response, next: Ne
 
         const result = await movieService.connectStudioToMovie(input); // Pass the correctly typed input
         res.status(201).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const deleteMovie = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { title } = req.params;
+        // Basic validation
+        if (!title || typeof title !== 'string') {
+            return res.status(400).json({ message: 'Movie title is required for deletion.' });
+        }
+        const message = await movieService.deleteMovie(title);
+        res.status(200).json({ message }); // 200 OK with confirmation message
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deletePerson = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { name } = req.params;
+        // Basic validation
+        if (!name || typeof name !== 'string') {
+            return res.status(400).json({ message: 'Person name is required for deletion.' });
+        }
+        const message = await movieService.deletePerson(name);
+        res.status(200).json({ message }); // 200 OK with confirmation message
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteRelationship = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const input: IDeleteRelationshipInput = req.body;
+        // Basic validation
+        if (!input.fromName || !input.toName || !input.relationshipType) {
+            return res.status(400).json({ message: 'fromName, toName, and relationshipType are required to delete a relationship.' });
+        }
+        if (typeof input.fromName !== 'string' || typeof input.toName !== 'string' || typeof input.relationshipType !== 'string') {
+            return res.status(400).json({ message: 'All relationship deletion fields must be strings.' });
+        }
+
+        const message = await movieService.deleteRelationship(input);
+        res.status(200).json({ message }); // 200 OK with confirmation message
     } catch (error) {
         next(error);
     }

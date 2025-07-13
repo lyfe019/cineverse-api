@@ -32,4 +32,10 @@ router.post('/studios', movieController.addStudio);
 router.post('/studios/:studioName/produces/:movieTitle', movieController.connectStudioToMovie); // Connect studio to movie
 
 
-export default router;
+// --- Delete Routes (NEW) ---
+router.delete('/movies/:title', movieController.deleteMovie); // DELETE /api/movies/The%20Matrix
+router.delete('/persons/:name', movieController.deletePerson); // DELETE /api/persons/Keanu%20Reeves
+router.delete('/relationships', movieController.deleteRelationship); // DELETE /api/relationships (requires body)
+
+
+export default router
