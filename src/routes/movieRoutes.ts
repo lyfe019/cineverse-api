@@ -63,4 +63,16 @@ router.get('/movies/:movieTitle/genres', movieController.getGenresOfMovie);
 router.get('/movies/:movieTitle/studio', movieController.getStudioOfMovie);
 
 
+// --- Basic Graph Insights Routes (NEW) ---
+// GET /api/actors/:actorName/co-actors
+router.get('/actors/:actorName/co-actors', movieController.getCoActors);
+
+// GET /api/actors/:actor1Name/shared-movies/:actor2Name
+router.get('/actors/:actor1Name/shared-movies/:actor2Name', movieController.getSharedMoviesBetweenActors);
+
+// GET /api/actors/:actor1Name/path-to/:actor2Name
+router.get('/actors/:actor1Name/path-to/:actor2Name', movieController.getShortestPathBetweenActors);
+
+
+
 export default router

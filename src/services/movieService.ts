@@ -26,7 +26,8 @@ import {
         ICoActorResponse,       
     ISharedMovieResponse,   
     IShortestPathResponse,  
-    IPathSegment                        
+    IPathSegment,
+     IRecommendedMovieResponse                       
 } from '../interfaces/movie.js'; 
 import neo4j from 'neo4j-driver'; 
 
@@ -754,6 +755,67 @@ export async function getShortestPathBetweenActors(actor1Name: string, actor2Nam
             throw new Error("APOC library not installed or configured on Neo4j. Shortest path feature requires APOC. " + error.message);
         }
         throw error; // Re-throw other errors
+    } finally {
+        await session.close();
+    }
+}
+
+// --- Advanced Recommendation Services ---
+
+/**
+ * Recommends movies based on shared genres with a given movie.
+ * Excludes the original movie itself.
+ * @param {string} movieTitle - The title of the movie to base recommendations on.
+ * @returns {Promise<IRecommendedMovieResponse[]>} A list of recommended movies.
+ */
+export async function recommendMoviesBySharedGenres(movieTitle: string): Promise<IRecommendedMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (m1:Movie {title: $movieTitle})-[:HAS_GENRE]->(g:Genre)<-[:HAS_GENRE]-(m2:Movie)
+            WHERE m1 <> m2 // Exclude the original movie
+            RETURN m2.title AS title, m2.released AS released, m2.tagline AS tagline,
+                   COLLECT(g.name) AS sharedGenres, COUNT(DISTINCT g) AS commonGenreCount
+            ORDER BY commonGenreCount DESC, m2.title ASC
+            LIMIT 10 // Limit to top 10 recommendations
+        `;
+        const result = await session.run(query, { movieTitle });
+        return result.records.map(record => ({
+            title: record.get('title'),
+            released: record.get('released'),
+            tagline: record.get('tagline'),
+            reason: `Shared Genres: ${record.get('sharedGenres').join(', ')}` // Provide a reason
+        })) as IRecommendedMovieResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Recommends movies based on shared cast or crew (actors or directors) with a given movie.
+ * Excludes the original movie itself.
+ * @param {string} movieTitle - The title of the movie to base recommendations on.
+ * @returns {Promise<IRecommendedMovieResponse[]>} A list of recommended movies.
+ */
+export async function recommendMoviesBySharedCastCrew(movieTitle: string): Promise<IRecommendedMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (m1:Movie {title: $movieTitle})<-[r1:ACTED_IN|DIRECTED]-(p:Person)
+            MATCH (p)-[r2:ACTED_IN|DIRECTED]->(m2:Movie)
+            WHERE m1 <> m2 // Exclude the original movie
+            RETURN m2.title AS title, m2.released AS released, m2.tagline AS tagline,
+                   COLLECT(DISTINCT p.name) AS sharedCastCrew, COUNT(DISTINCT p) AS commonCastCrewCount
+            ORDER BY commonCastCrewCount DESC, m2.title ASC
+            LIMIT 10 // Limit to top 10 recommendations
+        `;
+        const result = await session.run(query, { movieTitle });
+        return result.records.map(record => ({
+            title: record.get('title'),
+            released: record.get('released'),
+            tagline: record.get('tagline'),
+            reason: `Shared Cast/Crew: ${record.get('sharedCastCrew').join(', ')}` // Provide a reason
+        })) as IRecommendedMovieResponse[];
     } finally {
         await session.close();
     }

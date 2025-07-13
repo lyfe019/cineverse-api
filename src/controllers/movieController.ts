@@ -375,3 +375,57 @@ export const getStudioOfMovie = async (req: Request, res: Response, next: NextFu
         next(error);
     }
 };
+
+
+// --- Basic Graph Insights Controllers ---
+
+export const getCoActors = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { actorName } = req.params;
+        if (!actorName || typeof actorName !== 'string') {
+            return res.status(400).json({ message: 'Actor name is required.' });
+        }
+        const coActors = await movieService.getCoActors(actorName);
+        if (coActors.length > 0) {
+            res.status(200).json(coActors);
+        } else {
+            res.status(404).json({ message: `No co-actors found for '${actorName}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getSharedMoviesBetweenActors = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { actor1Name, actor2Name } = req.params;
+        if (!actor1Name || !actor2Name || typeof actor1Name !== 'string' || typeof actor2Name !== 'string') {
+            return res.status(400).json({ message: 'Both actor1Name and actor2Name are required.' });
+        }
+        const sharedMovies = await movieService.getSharedMoviesBetweenActors(actor1Name, actor2Name);
+        if (sharedMovies.length > 0) {
+            res.status(200).json(sharedMovies);
+        } else {
+            res.status(404).json({ message: `No shared movies found between '${actor1Name}' and '${actor2Name}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getShortestPathBetweenActors = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { actor1Name, actor2Name } = req.params;
+        if (!actor1Name || !actor2Name || typeof actor1Name !== 'string' || typeof actor2Name !== 'string') {
+            return res.status(400).json({ message: 'Both actor1Name and actor2Name are required.' });
+        }
+        const path = await movieService.getShortestPathBetweenActors(actor1Name, actor2Name);
+        if (path) {
+            res.status(200).json(path);
+        } else {
+            res.status(404).json({ message: `No path found between '${actor1Name}' and '${actor2Name}'.` });
+        }
+    } catch (error) {
+        next(error)
+    }
+};
