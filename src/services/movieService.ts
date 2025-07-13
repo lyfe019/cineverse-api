@@ -471,6 +471,7 @@ export async function deleteRelationship(input: IDeleteRelationshipInput): Promi
 
 
 
+
 /**
  * Retrieves all movies an actor has acted in, including their roles.
  * @param {string} actorName - The name of the actor.
@@ -480,7 +481,7 @@ export async function getMoviesByActor(actorName: string): Promise<IMovieByActor
     const session = getSession();
     try {
         const query = `
-            MATCH (p:Person {name: $actorName})-[:ACTED_IN]->(m:Movie)
+            MATCH (p:Person {name: $actorName})-[r:ACTED_IN]->(m:Movie) // <--- MODIFIED: Added 'r' to bind the relationship
             RETURN m.title AS title, m.released AS released, m.tagline AS tagline, r.roles AS roles
         `;
         const result = await session.run(query, { actorName });
@@ -517,6 +518,7 @@ export async function getActorsInMovie(movieTitle: string): Promise<IActorInMovi
     }
 }
 
+
 /**
  * Retrieves all movies a person has directed.
  * @param {string} directorName - The name of the director.
@@ -527,9 +529,10 @@ export async function getMoviesDirectedByPerson(directorName: string): Promise<I
     try {
         const query = `
             MATCH (p:Person {name: $directorName})-[:DIRECTED]->(m:Movie)
-            RETURN m.title AS title, m.released AS released, m.tagline AS tagline
+            RETURN m // <--- MODIFIED: Return the full movie node 'm'
         `;
         const result = await session.run(query, { directorName });
+        // Now, record.get('m') will correctly retrieve the node, and .properties will work.
         return result.records.map(record => record.get('m').properties as IMovieResponse);
     } finally {
         await session.close();

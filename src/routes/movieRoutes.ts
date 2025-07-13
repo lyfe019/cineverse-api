@@ -38,4 +38,15 @@ router.delete('/persons/:name', movieController.deletePerson); // DELETE /api/pe
 router.delete('/relationships', movieController.deleteRelationship); // DELETE /api/relationships (requires body)
 
 
+// --- Relationship Exploration Routes (NEW) ---
+// GET /api/actors/:actorName/movies
+router.get('/actors/:actorName/movies', movieController.getMoviesByActor);
+
+// GET /api/movies/:movieTitle/actors
+router.get('/movies/:movieTitle/actors', movieController.getActorsInMovie);
+
+// GET /api/directors/:directorName/movies
+router.get('/directors/:directorName/movies', movieController.getMoviesDirectedByPerson);
+
+
 export default router

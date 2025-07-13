@@ -250,3 +250,57 @@ export const deleteRelationship = async (req: Request, res: Response, next: Next
         next(error);
     }
 };
+
+
+// --- Relationship Exploration Controllers ---
+
+export const getMoviesByActor = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { actorName } = req.params;
+        if (!actorName || typeof actorName !== 'string') {
+            return res.status(400).json({ message: 'Actor name is required.' });
+        }
+        const movies = await movieService.getMoviesByActor(actorName);
+        if (movies.length > 0) {
+            res.status(200).json(movies);
+        } else {
+            res.status(404).json({ message: `No movies found for actor '${actorName}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getActorsInMovie = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { movieTitle } = req.params;
+        if (!movieTitle || typeof movieTitle !== 'string') {
+            return res.status(400).json({ message: 'Movie title is required.' });
+        }
+        const actors = await movieService.getActorsInMovie(movieTitle);
+        if (actors.length > 0) {
+            res.status(200).json(actors);
+        } else {
+            res.status(404).json({ message: `No actors found for movie '${movieTitle}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMoviesDirectedByPerson = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { directorName } = req.params;
+        if (!directorName || typeof directorName !== 'string') {
+            return res.status(400).json({ message: 'Director name is required.' });
+        }
+        const movies = await movieService.getMoviesDirectedByPerson(directorName);
+        if (movies.length > 0) {
+            res.status(200).json(movies);
+        } else {
+            res.status(404).json({ message: `No movies found for director '${directorName}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
