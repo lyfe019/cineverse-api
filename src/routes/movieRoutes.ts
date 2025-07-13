@@ -81,4 +81,22 @@ router.get('/movies/:movieTitle/recommendations/genre', movieController.recommen
 // GET /api/movies/:movieTitle/recommendations/cast-crew
 router.get('/movies/:movieTitle/recommendations/cast-crew', movieController.recommendMoviesBySharedCastCrew);
 
-export default router
+
+
+
+// --- Top N & Common Directors Routes (NEW) ---
+// GET /api/top-actors?n=5
+router.get('/top-actors', movieController.getTopNActorsByMovieCount);
+
+// GET /api/top-directors?n=5
+router.get('/top-directors', movieController.getTopNDirectorsByMovieCount);
+
+// GET /api/actors/:actor1Name/common-directors/:actor2Name
+router.get('/actors/:actor1Name/common-directors/:actor2Name', movieController.findCommonDirectorsBetweenActors);
+
+// GET /api/genres/:genreName/movies-with-actors
+router.get('/genres/:genreName/movies-with-actors', movieController.findMoviesWithActorsFromGenre);
+
+export default router;
+
+

@@ -466,3 +466,74 @@ export const recommendMoviesBySharedCastCrew = async (req: Request, res: Respons
         next(error);
     }
 };
+
+
+// --- Top N & Common Directors Controllers ---
+
+export const getTopNActorsByMovieCount = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const n = parseInt(req.query.n as string) || 10; // Default to 10
+        if (isNaN(n) || n <= 0) {
+            return res.status(400).json({ message: 'Parameter "n" must be a positive integer.' });
+        }
+        const topActors = await movieService.getTopNActorsByMovieCount(n);
+        if (topActors.length > 0) {
+            res.status(200).json(topActors);
+        } else {
+            res.status(404).json({ message: `No top actors found.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getTopNDirectorsByMovieCount = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const n = parseInt(req.query.n as string) || 10; // Default to 10
+        if (isNaN(n) || n <= 0) {
+            return res.status(400).json({ message: 'Parameter "n" must be a positive integer.' });
+        }
+        const topDirectors = await movieService.getTopNDirectorsByMovieCount(n);
+        if (topDirectors.length > 0) {
+            res.status(200).json(topDirectors);
+        } else {
+            res.status(404).json({ message: `No top directors found.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const findCommonDirectorsBetweenActors = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { actor1Name, actor2Name } = req.params;
+        if (!actor1Name || !actor2Name || typeof actor1Name !== 'string' || typeof actor2Name !== 'string') {
+            return res.status(400).json({ message: 'Both actor1Name and actor2Name are required.' });
+        }
+        const commonDirectors = await movieService.findCommonDirectorsBetweenActors(actor1Name, actor2Name);
+        if (commonDirectors.length > 0) {
+            res.status(200).json(commonDirectors);
+        } else {
+            res.status(404).json({ message: `No common directors found between '${actor1Name}' and '${actor2Name}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const findMoviesWithActorsFromGenre = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { genreName } = req.params;
+        if (!genreName || typeof genreName !== 'string') {
+            return res.status(400).json({ message: 'Genre name is required.' });
+        }
+        const movies = await movieService.findMoviesWithActorsFromGenre(genreName);
+        if (movies.length > 0) {
+            res.status(200).json(movies);
+        } else {
+            res.status(404).json({ message: `No movies found with actors from genre '${genreName}'.` });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
