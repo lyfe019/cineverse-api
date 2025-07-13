@@ -27,7 +27,9 @@ import {
     ISharedMovieResponse,   
     IShortestPathResponse,  
     IPathSegment,
-     IRecommendedMovieResponse                       
+     IRecommendedMovieResponse,
+         ITopPersonResponse,       
+    ICommonDirectorResponse                          
 } from '../interfaces/movie.js'; 
 import neo4j from 'neo4j-driver'; 
 
@@ -816,6 +818,104 @@ export async function recommendMoviesBySharedCastCrew(movieTitle: string): Promi
             tagline: record.get('tagline'),
             reason: `Shared Cast/Crew: ${record.get('sharedCastCrew').join(', ')}` // Provide a reason
         })) as IRecommendedMovieResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+// --- Top N & Common Directors Services ---
+
+/**
+ * Retrieves the top N actors based on the number of movies they acted in.
+ * @param {number} n - The number of top actors to retrieve.
+ * @returns {Promise<ITopPersonResponse[]>} A list of top actors with their movie counts.
+ */
+export async function getTopNActorsByMovieCount(n: number = 10): Promise<ITopPersonResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+            RETURN p.name AS name, COUNT(DISTINCT m) AS movieCount
+            ORDER BY movieCount DESC
+            LIMIT $n
+        `;
+        const result = await session.run(query, { n: neo4j.int(n) });
+        return result.records.map(record => ({
+            name: record.get('name'),
+            movieCount: record.get('movieCount').toNumber()
+        })) as ITopPersonResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Retrieves the top N directors based on the number of movies they directed.
+ * @param {number} n - The number of top directors to retrieve.
+ * @returns {Promise<ITopPersonResponse[]>} A list of top directors with their movie counts.
+ */
+export async function getTopNDirectorsByMovieCount(n: number = 10): Promise<ITopPersonResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p:Person)-[:DIRECTED]->(m:Movie)
+            RETURN p.name AS name, COUNT(DISTINCT m) AS movieCount
+            ORDER BY movieCount DESC
+            LIMIT $n
+        `;
+        const result = await session.run(query, { n: neo4j.int(n) });
+        return result.records.map(record => ({
+            name: record.get('name'),
+            movieCount: record.get('movieCount').toNumber()
+        })) as ITopPersonResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Finds common directors between two actors.
+ * @param {string} actor1Name - The name of the first actor.
+ * @param {string} actor2Name - The name of the second actor.
+ * @returns {Promise<ICommonDirectorResponse[]>} A list of common directors.
+ */
+export async function findCommonDirectorsBetweenActors(actor1Name: string, actor2Name: string): Promise<ICommonDirectorResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (p1:Person {name: $actor1Name})-[:ACTED_IN]->(m1:Movie)<-[:DIRECTED]-(d:Person)
+            MATCH (p2:Person {name: $actor2Name})-[:ACTED_IN]->(m2:Movie)<-[:DIRECTED]-(d)
+            RETURN DISTINCT d.name AS name
+            ORDER BY name ASC
+        `;
+        const result = await session.run(query, { actor1Name, actor2Name });
+        return result.records.map(record => ({
+            name: record.get('name')
+        })) as ICommonDirectorResponse[];
+    } finally {
+        await session.close();
+    }
+}
+
+/**
+ * Finds movies that feature actors who have acted in movies of a specific genre.
+ * This is a more complex recommendation/discovery query.
+ * @param {string} genreName - The name of the genre.
+ * @returns {Promise<IMovieResponse[]>} A list of movies.
+ */
+export async function findMoviesWithActorsFromGenre(genreName: string): Promise<IMovieResponse[]> {
+    const session = getSession();
+    try {
+        const query = `
+            MATCH (g:Genre {name: $genreName})<-[:HAS_GENRE]-(m_genre:Movie)<-[:ACTED_IN]-(p:Person)
+            MATCH (p)-[:ACTED_IN]->(m_result:Movie)
+            WHERE NOT (m_result)-[:HAS_GENRE]->(g) // Exclude movies already in the queried genre
+            RETURN DISTINCT m_result AS m
+            ORDER BY m.title ASC
+            LIMIT 20 // Limit results for practicality
+        `;
+        const result = await session.run(query, { genreName });
+        return result.records.map(record => record.get('m').properties as IMovieResponse);
     } finally {
         await session.close();
     }
