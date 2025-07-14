@@ -3,19 +3,28 @@
   "version": "1.0.0",
   "description": "A Graph-Powered Movie Discovery & Connection API",
   "main": "dist/server.js",
-  "type": "module", 
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "nodemon --watch src --exec node --loader ts-node/esm src/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["neo4j", "graph database", "nodejs", "typescript", "api", "movies"],
+  "keywords": [
+    "neo4j",
+    "graph database",
+    "nodejs",
+    "typescript",
+    "api",
+    "movies"
+  ],
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "@types/joi": "^17.2.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "joi": "^17.13.3",
     "neo4j-driver": "^5.20.0"
   },
   "devDependencies": {

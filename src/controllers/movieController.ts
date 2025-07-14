@@ -1,3 +1,5 @@
+// src/controllers/movieController.ts
+
 import { Request, Response, NextFunction } from 'express';
 import * as movieService from '../services/movieService.js'; // Import all functions from movieService
 import {
@@ -6,12 +8,12 @@ import {
     IConnectActorToMovieInput,
     IConnectDirectorToMovieInput,
     IAddGenreInput,
-    IConnectMovieToGenreInput, 
+    IConnectMovieToGenreInput,
     IAddStudioInput,
     IConnectStudioToMovieInput,
-        IDeleteMovieInput,        
-    IDeletePersonInput,       
-    IDeleteRelationshipInput  
+    IDeleteMovieInput,
+    IDeletePersonInput,
+    IDeleteRelationshipInput
 } from '../interfaces/movie.js';
 
 // --- Movie Controllers ---
@@ -19,10 +21,7 @@ import {
 export const addMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const input: IAddMovieInput = req.body;
-        // Basic validation (more robust validation will be added in a later commit)
-        if (!input.title) {
-            return res.status(400).json({ message: 'Movie title is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware
         const movie = await movieService.addMovie(input);
         res.status(201).json(movie); // 201 Created
     } catch (error) {
@@ -46,6 +45,7 @@ export const getMovieByTitle = async (req: Request, res: Response, next: NextFun
 
 export const listAllMovies = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // Validation for page/limit handled by Joi middleware
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 10;
         const movies = await movieService.listAllMovies(page, limit);
@@ -60,10 +60,7 @@ export const listAllMovies = async (req: Request, res: Response, next: NextFunct
 export const addPerson = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const input: IAddPersonInput = req.body;
-        // Basic validation
-        if (!input.name) {
-            return res.status(400).json({ message: 'Person name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware
         const person = await movieService.addPerson(input);
         res.status(201).json(person); // 201 Created
     } catch (error) {
@@ -87,6 +84,7 @@ export const getPersonByName = async (req: Request, res: Response, next: NextFun
 
 export const listAllPeople = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // Validation for page/limit handled by Joi middleware
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 10;
         const people = await movieService.listAllPeople(page, limit);
@@ -100,17 +98,11 @@ export const listAllPeople = async (req: Request, res: Response, next: NextFunct
 
 export const connectActorToMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // Params are from URL, body is validated by Joi middleware
         const { actorName, movieTitle } = req.params;
-        const { roles } = req.body; // Roles come from the request body
+        const { roles } = req.body;
 
-        // Basic validation
-        if (!roles || !Array.isArray(roles) || roles.length === 0) {
-            return res.status(400).json({ message: 'Roles (as an array of strings) are required.' });
-        }
-        if (typeof actorName !== 'string' || typeof movieTitle !== 'string') {
-             return res.status(400).json({ message: 'Actor name and movie title must be strings.' });
-        }
-
+        // Manual validation removed, handled by Joi middleware
         const result = await movieService.connectActorToMovie({ actorName, movieTitle, roles });
         res.status(201).json(result); // 201 Created
     } catch (error) {
@@ -120,13 +112,10 @@ export const connectActorToMovie = async (req: Request, res: Response, next: Nex
 
 export const connectDirectorToMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // Params are from URL, body is validated by Joi middleware
         const { directorName, movieTitle } = req.params;
 
-        // Basic validation
-        if (typeof directorName !== 'string' || typeof movieTitle !== 'string') {
-             return res.status(400).json({ message: 'Director name and movie title must be strings.' });
-        }
-
+        // Manual validation removed, handled by Joi middleware
         const result = await movieService.connectDirectorToMovie({ directorName, movieTitle });
         res.status(201).json(result); // 201 Created
     } catch (error) {
@@ -139,9 +128,7 @@ export const connectDirectorToMovie = async (req: Request, res: Response, next: 
 export const addGenre = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const input: IAddGenreInput = req.body;
-        if (!input.name) {
-            return res.status(400).json({ message: 'Genre name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware
         const genre = await movieService.addGenre(input);
         res.status(201).json(genre);
     } catch (error) {
@@ -151,20 +138,13 @@ export const addGenre = async (req: Request, res: Response, next: NextFunction) 
 
 export const connectMovieToGenre = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // Params are from URL, body is validated by Joi middleware
         const { movieTitle } = req.params;
         const { genreNames } = req.body;
 
-        // Create an object that matches IConnectMovieToGenreInput
-        const input: IConnectMovieToGenreInput = { movieTitle, genreNames }; // <--- CORRECTED INPUT TYPE
-
-        if (!input.genreNames || !Array.isArray(input.genreNames) || input.genreNames.length === 0) {
-            return res.status(400).json({ message: 'Genre names (as an array of strings) are required.' });
-        }
-        if (typeof input.movieTitle !== 'string') {
-             return res.status(400).json({ message: 'Movie title must be a string.' });
-        }
-
-        const results = await movieService.connectMovieToGenre(input); // Pass the correctly typed input
+        const input: IConnectMovieToGenreInput = { movieTitle, genreNames };
+        // Manual validation removed, handled by Joi middleware
+        const results = await movieService.connectMovieToGenre(input);
         res.status(201).json(results);
     } catch (error) {
         next(error);
@@ -176,9 +156,7 @@ export const connectMovieToGenre = async (req: Request, res: Response, next: Nex
 export const addStudio = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const input: IAddStudioInput = req.body;
-        if (!input.name) {
-            return res.status(400).json({ message: 'Studio name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware
         const studio = await movieService.addStudio(input);
         res.status(201).json(studio);
     } catch (error) {
@@ -188,30 +166,24 @@ export const addStudio = async (req: Request, res: Response, next: NextFunction)
 
 export const connectStudioToMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // Params are from URL, body is validated by Joi middleware
         const { studioName, movieTitle } = req.params;
 
-        // Create an object that matches IConnectStudioToMovieInput
-        const input: IConnectStudioToMovieInput = { studioName, movieTitle }; // <--- CORRECTED INPUT TYPE
-
-        if (typeof input.studioName !== 'string' || typeof input.movieTitle !== 'string') {
-             return res.status(400).json({ message: 'Studio name and movie title must be strings.' });
-        }
-
-        const result = await movieService.connectStudioToMovie(input); // Pass the correctly typed input
+        const input: IConnectStudioToMovieInput = { studioName, movieTitle };
+        // Manual validation removed, handled by Joi middleware
+        const result = await movieService.connectStudioToMovie(input);
         res.status(201).json(result);
     } catch (error) {
         next(error);
     }
 };
 
+// --- Delete Controllers ---
 
 export const deleteMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { title } = req.params;
-        // Basic validation
-        if (!title || typeof title !== 'string') {
-            return res.status(400).json({ message: 'Movie title is required for deletion.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const message = await movieService.deleteMovie(title);
         res.status(200).json({ message }); // 200 OK with confirmation message
     } catch (error) {
@@ -222,10 +194,7 @@ export const deleteMovie = async (req: Request, res: Response, next: NextFunctio
 export const deletePerson = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { name } = req.params;
-        // Basic validation
-        if (!name || typeof name !== 'string') {
-            return res.status(400).json({ message: 'Person name is required for deletion.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const message = await movieService.deletePerson(name);
         res.status(200).json({ message }); // 200 OK with confirmation message
     } catch (error) {
@@ -236,14 +205,7 @@ export const deletePerson = async (req: Request, res: Response, next: NextFuncti
 export const deleteRelationship = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const input: IDeleteRelationshipInput = req.body;
-        // Basic validation
-        if (!input.fromName || !input.toName || !input.relationshipType) {
-            return res.status(400).json({ message: 'fromName, toName, and relationshipType are required to delete a relationship.' });
-        }
-        if (typeof input.fromName !== 'string' || typeof input.toName !== 'string' || typeof input.relationshipType !== 'string') {
-            return res.status(400).json({ message: 'All relationship deletion fields must be strings.' });
-        }
-
+        // Manual validation removed, handled by Joi middleware
         const message = await movieService.deleteRelationship(input);
         res.status(200).json({ message }); // 200 OK with confirmation message
     } catch (error) {
@@ -251,15 +213,12 @@ export const deleteRelationship = async (req: Request, res: Response, next: Next
     }
 };
 
-
 // --- Relationship Exploration Controllers ---
 
 export const getMoviesByActor = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { actorName } = req.params;
-        if (!actorName || typeof actorName !== 'string') {
-            return res.status(400).json({ message: 'Actor name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const movies = await movieService.getMoviesByActor(actorName);
         if (movies.length > 0) {
             res.status(200).json(movies);
@@ -274,9 +233,7 @@ export const getMoviesByActor = async (req: Request, res: Response, next: NextFu
 export const getActorsInMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { movieTitle } = req.params;
-        if (!movieTitle || typeof movieTitle !== 'string') {
-            return res.status(400).json({ message: 'Movie title is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const actors = await movieService.getActorsInMovie(movieTitle);
         if (actors.length > 0) {
             res.status(200).json(actors);
@@ -291,9 +248,7 @@ export const getActorsInMovie = async (req: Request, res: Response, next: NextFu
 export const getMoviesDirectedByPerson = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { directorName } = req.params;
-        if (!directorName || typeof directorName !== 'string') {
-            return res.status(400).json({ message: 'Director name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const movies = await movieService.getMoviesDirectedByPerson(directorName);
         if (movies.length > 0) {
             res.status(200).json(movies);
@@ -305,15 +260,12 @@ export const getMoviesDirectedByPerson = async (req: Request, res: Response, nex
     }
 };
 
-
 // --- New Relationship Exploration Controllers (Genres, Studios) ---
 
 export const getMoviesByGenre = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { genreName } = req.params;
-        if (!genreName || typeof genreName !== 'string') {
-            return res.status(400).json({ message: 'Genre name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const movies = await movieService.getMoviesByGenre(genreName);
         if (movies.length > 0) {
             res.status(200).json(movies);
@@ -328,9 +280,7 @@ export const getMoviesByGenre = async (req: Request, res: Response, next: NextFu
 export const getMoviesByStudio = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { studioName } = req.params;
-        if (!studioName || typeof studioName !== 'string') {
-            return res.status(400).json({ message: 'Studio name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const movies = await movieService.getMoviesByStudio(studioName);
         if (movies.length > 0) {
             res.status(200).json(movies);
@@ -345,9 +295,7 @@ export const getMoviesByStudio = async (req: Request, res: Response, next: NextF
 export const getGenresOfMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { movieTitle } = req.params;
-        if (!movieTitle || typeof movieTitle !== 'string') {
-            return res.status(400).json({ message: 'Movie title is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const genres = await movieService.getGenresOfMovie(movieTitle);
         if (genres.length > 0) {
             res.status(200).json(genres);
@@ -362,9 +310,7 @@ export const getGenresOfMovie = async (req: Request, res: Response, next: NextFu
 export const getStudioOfMovie = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { movieTitle } = req.params;
-        if (!movieTitle || typeof movieTitle !== 'string') {
-            return res.status(400).json({ message: 'Movie title is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const studio = await movieService.getStudioOfMovie(movieTitle);
         if (studio) {
             res.status(200).json(studio);
@@ -376,15 +322,12 @@ export const getStudioOfMovie = async (req: Request, res: Response, next: NextFu
     }
 };
 
-
 // --- Basic Graph Insights Controllers ---
 
 export const getCoActors = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { actorName } = req.params;
-        if (!actorName || typeof actorName !== 'string') {
-            return res.status(400).json({ message: 'Actor name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const coActors = await movieService.getCoActors(actorName);
         if (coActors.length > 0) {
             res.status(200).json(coActors);
@@ -399,9 +342,7 @@ export const getCoActors = async (req: Request, res: Response, next: NextFunctio
 export const getSharedMoviesBetweenActors = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { actor1Name, actor2Name } = req.params;
-        if (!actor1Name || !actor2Name || typeof actor1Name !== 'string' || typeof actor2Name !== 'string') {
-            return res.status(400).json({ message: 'Both actor1Name and actor2Name are required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const sharedMovies = await movieService.getSharedMoviesBetweenActors(actor1Name, actor2Name);
         if (sharedMovies.length > 0) {
             res.status(200).json(sharedMovies);
@@ -416,9 +357,7 @@ export const getSharedMoviesBetweenActors = async (req: Request, res: Response, 
 export const getShortestPathBetweenActors = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { actor1Name, actor2Name } = req.params;
-        if (!actor1Name || !actor2Name || typeof actor1Name !== 'string' || typeof actor2Name !== 'string') {
-            return res.status(400).json({ message: 'Both actor1Name and actor2Name are required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const path = await movieService.getShortestPathBetweenActors(actor1Name, actor2Name);
         if (path) {
             res.status(200).json(path);
@@ -430,15 +369,12 @@ export const getShortestPathBetweenActors = async (req: Request, res: Response, 
     }
 };
 
-
 // --- Advanced Recommendation Controllers ---
 
 export const recommendMoviesBySharedGenres = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { movieTitle } = req.params;
-        if (!movieTitle || typeof movieTitle !== 'string') {
-            return res.status(400).json({ message: 'Movie title is required for genre-based recommendations.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const recommendations = await movieService.recommendMoviesBySharedGenres(movieTitle);
         if (recommendations.length > 0) {
             res.status(200).json(recommendations);
@@ -453,9 +389,7 @@ export const recommendMoviesBySharedGenres = async (req: Request, res: Response,
 export const recommendMoviesBySharedCastCrew = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { movieTitle } = req.params;
-        if (!movieTitle || typeof movieTitle !== 'string') {
-            return res.status(400).json({ message: 'Movie title is required for cast/crew-based recommendations.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const recommendations = await movieService.recommendMoviesBySharedCastCrew(movieTitle);
         if (recommendations.length > 0) {
             res.status(200).json(recommendations);
@@ -467,15 +401,12 @@ export const recommendMoviesBySharedCastCrew = async (req: Request, res: Respons
     }
 };
 
-
 // --- Top N & Common Directors Controllers ---
 
 export const getTopNActorsByMovieCount = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const n = parseInt(req.query.n as string) || 10; // Default to 10
-        if (isNaN(n) || n <= 0) {
-            return res.status(400).json({ message: 'Parameter "n" must be a positive integer.' });
-        }
+        // Validation for 'n' handled by Joi middleware
+        const n = parseInt(req.query.n as string) || 10;
         const topActors = await movieService.getTopNActorsByMovieCount(n);
         if (topActors.length > 0) {
             res.status(200).json(topActors);
@@ -489,10 +420,8 @@ export const getTopNActorsByMovieCount = async (req: Request, res: Response, nex
 
 export const getTopNDirectorsByMovieCount = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const n = parseInt(req.query.n as string) || 10; // Default to 10
-        if (isNaN(n) || n <= 0) {
-            return res.status(400).json({ message: 'Parameter "n" must be a positive integer.' });
-        }
+        // Validation for 'n' handled by Joi middleware
+        const n = parseInt(req.query.n as string) || 10;
         const topDirectors = await movieService.getTopNDirectorsByMovieCount(n);
         if (topDirectors.length > 0) {
             res.status(200).json(topDirectors);
@@ -507,9 +436,7 @@ export const getTopNDirectorsByMovieCount = async (req: Request, res: Response, 
 export const findCommonDirectorsBetweenActors = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { actor1Name, actor2Name } = req.params;
-        if (!actor1Name || !actor2Name || typeof actor1Name !== 'string' || typeof actor2Name !== 'string') {
-            return res.status(400).json({ message: 'Both actor1Name and actor2Name are required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const commonDirectors = await movieService.findCommonDirectorsBetweenActors(actor1Name, actor2Name);
         if (commonDirectors.length > 0) {
             res.status(200).json(commonDirectors);
@@ -524,9 +451,7 @@ export const findCommonDirectorsBetweenActors = async (req: Request, res: Respon
 export const findMoviesWithActorsFromGenre = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { genreName } = req.params;
-        if (!genreName || typeof genreName !== 'string') {
-            return res.status(400).json({ message: 'Genre name is required.' });
-        }
+        // Manual validation removed, handled by Joi middleware (if applicable, or simple type check)
         const movies = await movieService.findMoviesWithActorsFromGenre(genreName);
         if (movies.length > 0) {
             res.status(200).json(movies);
