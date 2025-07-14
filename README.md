@@ -636,9 +636,3 @@ Next Step:
 You can now commit this README.md file. Here's your commit message:
 
 docs: Add comprehensive README.md for API project
-
-Update README.md with detailed instructions for setting up, configuring, running, and testing the API.
-Include API endpoint documentation (paths, methods, expected inputs/outputs).
-Explain the domain model and its benefits.
-
-Let me know if you'd like any adjustments or if you're ready to proceed!
