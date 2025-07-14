@@ -629,10 +629,3 @@ Docker Compose: Set up Docker Compose for easier local development with Neo4j an
 
 CI/CD Pipeline: Automate testing and deployment with a CI/CD pipeline.
 
-This README.md should provide a solid foundation for anyone looking to understand, set up, and use your CineVerse API.
-
-Next Step:
-
-You can now commit this README.md file. Here's your commit message:
-
-docs: Add comprehensive README.md for API project
