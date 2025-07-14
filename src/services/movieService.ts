@@ -9,29 +9,32 @@ import {
     IMovieResponse,
     IPersonResponse,
     IPaginatedResponse,
-    IConnectActorToMovieInput, 
-    IConnectDirectorToMovieInput, 
+    IConnectActorToMovieInput,
+    IConnectDirectorToMovieInput,
     IRelationshipCreatedResponse,
-        IAddGenreInput,         
-  IConnectMovieToGenreInput,    
-    IAddStudioInput,         
-        IConnectStudioToMovieInput,    
-    IGenreResponse,          
+    IAddGenreInput,
+    IConnectMovieToGenreInput,
+    IAddStudioInput,
+    IConnectStudioToMovieInput,
+    IGenreResponse,
     IStudioResponse,
-    IDeleteMovieInput,        
-    IDeletePersonInput,       
+    IDeleteMovieInput,
+    IDeletePersonInput,
     IDeleteRelationshipInput,
     IMovieByActorResponse,
     IActorInMovieResponse,
-        ICoActorResponse,       
-    ISharedMovieResponse,   
-    IShortestPathResponse,  
+    ICoActorResponse,
+    ISharedMovieResponse,
+    IShortestPathResponse,
     IPathSegment,
-     IRecommendedMovieResponse,
-         ITopPersonResponse,       
-    ICommonDirectorResponse                          
-} from '../interfaces/movie.js'; 
-import neo4j from 'neo4j-driver'; 
+    IRecommendedMovieResponse,
+    ITopPersonResponse,
+    ICommonDirectorResponse
+} from '../interfaces/movie.js';
+import neo4j from 'neo4j-driver';
+
+// NEW IMPORT: Custom Error Classes
+import { NotFoundError, BadRequestError, DatabaseError } from '../utils/errors.js'; // <-- NEW IMPORT
 
 /**
  * Adds a new movie or updates an existing one.
@@ -54,6 +57,12 @@ export async function addMovie(input: IAddMovieInput): Promise<IMovieResponse> {
         });
         const movieNode = result.records[0].get('m');
         return movieNode.properties as IMovieResponse;
+    } catch (error: any) {
+        // Check for unique constraint violation (Neo4jError code for constraint violation)
+        if (error.code === 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+            throw new BadRequestError(`Movie with title '${input.title}' already exists.`);
+        }
+        throw new DatabaseError(`Failed to add movie: ${error.message}`, error); // Wrap other DB errors
     } finally {
         await session.close();
     }
@@ -79,6 +88,11 @@ export async function addPerson(input: IAddPersonInput): Promise<IPersonResponse
         });
         const personNode = result.records[0].get('p');
         return personNode.properties as IPersonResponse;
+    } catch (error: any) {
+        if (error.code === 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+            throw new BadRequestError(`Person with name '${input.name}' already exists.`);
+        }
+        throw new DatabaseError(`Failed to add person: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -101,7 +115,9 @@ export async function getMovieByTitle(title: string): Promise<IMovieResponse | n
             const movieNode = result.records[0].get('m');
             return movieNode.properties as IMovieResponse;
         }
-        return null;
+        return null; // Return null if not found, controller will handle 404
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve movie by title: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -124,7 +140,9 @@ export async function getPersonByName(name: string): Promise<IPersonResponse | n
             const personNode = result.records[0].get('p');
             return personNode.properties as IPersonResponse;
         }
-        return null;
+        return null; // Return null if not found, controller will handle 404
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve person by name: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -148,7 +166,7 @@ export async function listAllMovies(page: number = 1, limit: number = 10): Promi
         // Query to get paginated movies
         const moviesResult = await session.run(
             `MATCH (m:Movie) RETURN m ORDER BY m.title SKIP $skip LIMIT $limit`,
-            { skip: neo4j.int(skip), limit: neo4j.int(limit) } 
+            { skip: neo4j.int(skip), limit: neo4j.int(limit) }
         );
         const movies = moviesResult.records.map(record => record.get('m').properties as IMovieResponse);
 
@@ -159,6 +177,8 @@ export async function listAllMovies(page: number = 1, limit: number = 10): Promi
             totalItems,
             totalPages: Math.ceil(totalItems / limit)
         };
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to list all movies: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -182,7 +202,7 @@ export async function listAllPeople(page: number = 1, limit: number = 10): Promi
         // Query to get paginated people
         const peopleResult = await session.run(
             `MATCH (p:Person) RETURN p ORDER BY p.name SKIP $skip LIMIT $limit`,
-            { skip: neo4j.int(skip), limit: neo4j.int(limit) } 
+            { skip: neo4j.int(skip), limit: neo4j.int(limit) }
         );
         const people = peopleResult.records.map(record => record.get('p').properties as IPersonResponse);
 
@@ -193,12 +213,12 @@ export async function listAllPeople(page: number = 1, limit: number = 10): Promi
             totalItems,
             totalPages: Math.ceil(totalItems / limit)
         };
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to list all people: ${error.message}`, error);
     } finally {
         await session.close();
     }
 }
-
-
 
 /**
  * Connects an actor to a movie with their specific roles.
@@ -224,7 +244,7 @@ export async function connectActorToMovie(input: IConnectActorToMovieInput): Pro
 
         if (result.records.length === 0) {
             // This scenario means either actor or movie wasn't found, or relationship couldn't be merged
-            throw new Error(`Failed to connect actor '${input.actorName}' to movie '${input.movieTitle}'. Ensure both exist.`);
+            throw new NotFoundError(`Actor '${input.actorName}' or movie '${input.movieTitle}' not found.`); // <-- THROW CUSTOM ERROR
         }
 
         const record = result.records[0];
@@ -235,12 +255,13 @@ export async function connectActorToMovie(input: IConnectActorToMovieInput): Pro
             type: record.get('relationshipType'),
             properties: { roles: record.get('properties') }
         };
+    } catch (error: any) {
+        if (error instanceof NotFoundError) throw error; // Re-throw NotFoundError if already thrown
+        throw new DatabaseError(`Failed to connect actor '${input.actorName}' to movie '${input.movieTitle}': ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close();
     }
 }
-
-
 
 /**
  * Connects a director to a movie.
@@ -262,7 +283,7 @@ export async function connectDirectorToMovie(input: IConnectDirectorToMovieInput
         });
 
         if (result.records.length === 0) {
-            throw new Error(`Failed to connect director '${input.directorName}' to movie '${input.movieTitle}'. Ensure both exist.`);
+            throw new NotFoundError(`Director '${input.directorName}' or movie '${input.movieTitle}' not found.`); // <-- THROW CUSTOM ERROR
         }
 
         const record = result.records[0];
@@ -272,12 +293,13 @@ export async function connectDirectorToMovie(input: IConnectDirectorToMovieInput
             to: record.get('toName'),
             type: record.get('relationshipType')
         };
+    } catch (error: any) {
+        if (error instanceof NotFoundError) throw error;
+        throw new DatabaseError(`Failed to connect director '${input.directorName}' to movie '${input.movieTitle}': ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close();
     }
 }
-
-
 
 /**
  * Adds a new genre or updates an existing one.
@@ -294,6 +316,11 @@ export async function addGenre(input: IAddGenreInput): Promise<IGenreResponse> {
         const result = await session.run(query, { name: input.name });
         const genreNode = result.records[0].get('g');
         return genreNode.properties as IGenreResponse;
+    } catch (error: any) {
+        if (error.code === 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+            throw new BadRequestError(`Genre with name '${input.name}' already exists.`);
+        }
+        throw new DatabaseError(`Failed to add genre: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -321,7 +348,8 @@ export async function connectMovieToGenre(input: IConnectMovieToGenreInput): Pro
         });
 
         if (result.records.length === 0) {
-             throw new Error(`Failed to connect movie '${input.movieTitle}' to genres. Ensure movie exists.`);
+            // This indicates the movie wasn't found, or no genres were provided/connected
+            throw new NotFoundError(`Movie '${input.movieTitle}' not found or no genres were connected.`); // <-- THROW CUSTOM ERROR
         }
 
         result.records.forEach(record => {
@@ -333,6 +361,9 @@ export async function connectMovieToGenre(input: IConnectMovieToGenreInput): Pro
             });
         });
         return results;
+    } catch (error: any) {
+        if (error instanceof NotFoundError) throw error;
+        throw new DatabaseError(`Failed to connect movie '${input.movieTitle}' to genres: ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close();
     }
@@ -350,9 +381,14 @@ export async function addStudio(input: IAddStudioInput): Promise<IStudioResponse
             MERGE (s:Studio {name: $name})
             RETURN s
         `;
-        const result = await session.run(query, { name: input.name });
+        const result = await session.run(query, input);
         const studioNode = result.records[0].get('s');
         return studioNode.properties as IStudioResponse;
+    } catch (error: any) {
+        if (error.code === 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+            throw new BadRequestError(`Studio with name '${input.name}' already exists.`);
+        }
+        throw new DatabaseError(`Failed to add studio: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -372,13 +408,10 @@ export async function connectStudioToMovie(input: IConnectStudioToMovieInput): P
             MERGE (s)-[r:PRODUCED]->(m)
             RETURN s.name AS fromName, m.title AS toName, type(r) AS relationshipType
         `;
-        const result = await session.run(query, {
-            studioName: input.studioName,
-            movieTitle: input.movieTitle
-        });
+        const result = await session.run(query, input);
 
         if (result.records.length === 0) {
-            throw new Error(`Failed to connect studio '${input.studioName}' to movie '${input.movieTitle}'. Ensure both exist.`);
+            throw new NotFoundError(`Studio '${input.studioName}' or movie '${input.movieTitle}' not found.`); // <-- THROW CUSTOM ERROR
         }
 
         const record = result.records[0];
@@ -388,11 +421,13 @@ export async function connectStudioToMovie(input: IConnectStudioToMovieInput): P
             to: record.get('toName'),
             type: record.get('relationshipType')
         };
+    } catch (error: any) {
+        if (error instanceof NotFoundError) throw error;
+        throw new DatabaseError(`Failed to connect studio '${input.studioName}' to movie '${input.movieTitle}': ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close()
     }
 }
-
 
 /**
  * Deletes a movie node and all its relationships.
@@ -410,9 +445,12 @@ export async function deleteMovie(title: string): Promise<string> {
 
         // Robust check: If no updates (including deletions) occurred, it means the node wasn't found.
         if (!result.summary.updateStatistics.containsUpdates()) {
-            throw new Error(`Movie with title '${title}' not found or could not be deleted.`);
+            throw new NotFoundError(`Movie with title '${title}' not found or could not be deleted.`); // <-- THROW CUSTOM ERROR
         }
         return `Movie '${title}' and its relationships deleted successfully.`;
+    } catch (error: any) {
+        if (error instanceof NotFoundError) throw error;
+        throw new DatabaseError(`Failed to delete movie '${title}': ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close();
     }
@@ -434,9 +472,12 @@ export async function deletePerson(name: string): Promise<string> {
 
         // Robust check: If no updates (including deletions) occurred, it means the node wasn't found.
         if (!result.summary.updateStatistics.containsUpdates()) {
-            throw new Error(`Person with name '${name}' not found or could not be deleted.`);
+            throw new NotFoundError(`Person with name '${name}' not found or could not be deleted.`); // <-- THROW CUSTOM ERROR
         }
         return `Person '${name}' and their relationships deleted successfully.`;
+    } catch (error: any) {
+        if (error instanceof NotFoundError) throw error;
+        throw new DatabaseError(`Failed to delete person '${name}': ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close();
     }
@@ -468,16 +509,16 @@ export async function deleteRelationship(input: IDeleteRelationshipInput): Promi
 
         // Robust check: If no updates (including deletions) occurred, it means the relationship wasn't found.
         if (!result.summary.updateStatistics.containsUpdates()) {
-            throw new Error(`Relationship of type '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' not found or could not be deleted.`);
+            throw new NotFoundError(`Relationship of type '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' not found or could not be deleted.`); // <-- THROW CUSTOM ERROR
         }
         return `Relationship '${input.relationshipType}' from '${input.fromName}' to '${input.toName}' deleted successfully.`;
+    } catch (error: any) {
+        if (error instanceof NotFoundError) throw error;
+        throw new DatabaseError(`Failed to delete relationship: ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close();
     }
 }
-
-
-
 
 /**
  * Retrieves all movies an actor has acted in, including their roles.
@@ -488,7 +529,7 @@ export async function getMoviesByActor(actorName: string): Promise<IMovieByActor
     const session = getSession();
     try {
         const query = `
-            MATCH (p:Person {name: $actorName})-[r:ACTED_IN]->(m:Movie) // <--- MODIFIED: Added 'r' to bind the relationship
+            MATCH (p:Person {name: $actorName})-[r:ACTED_IN]->(m:Movie)
             RETURN m.title AS title, m.released AS released, m.tagline AS tagline, r.roles AS roles
         `;
         const result = await session.run(query, { actorName });
@@ -498,6 +539,8 @@ export async function getMoviesByActor(actorName: string): Promise<IMovieByActor
             tagline: record.get('tagline'),
             roles: record.get('roles') // Roles from the relationship property
         })) as IMovieByActorResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve movies by actor '${actorName}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -520,11 +563,12 @@ export async function getActorsInMovie(movieTitle: string): Promise<IActorInMovi
             actorName: record.get('actorName'),
             roles: record.get('roles')
         })) as IActorInMovieResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve actors in movie '${movieTitle}': ${error.message}`, error);
     } finally {
         await session.close();
     }
 }
-
 
 /**
  * Retrieves all movies a person has directed.
@@ -536,17 +580,16 @@ export async function getMoviesDirectedByPerson(directorName: string): Promise<I
     try {
         const query = `
             MATCH (p:Person {name: $directorName})-[:DIRECTED]->(m:Movie)
-            RETURN m // <--- MODIFIED: Return the full movie node 'm'
+            RETURN m
         `;
         const result = await session.run(query, { directorName });
-        // Now, record.get('m') will correctly retrieve the node, and .properties will work.
         return result.records.map(record => record.get('m').properties as IMovieResponse);
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve movies directed by '${directorName}': ${error.message}`, error);
     } finally {
         await session.close();
     }
 }
-
-
 
 /**
  * Retrieves all movies belonging to a specific genre.
@@ -562,6 +605,8 @@ export async function getMoviesByGenre(genreName: string): Promise<IMovieRespons
         `;
         const result = await session.run(query, { genreName });
         return result.records.map(record => record.get('m').properties as IMovieResponse);
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve movies by genre '${genreName}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -581,6 +626,8 @@ export async function getMoviesByStudio(studioName: string): Promise<IMovieRespo
         `;
         const result = await session.run(query, { studioName });
         return result.records.map(record => record.get('m').properties as IMovieResponse);
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve movies by studio '${studioName}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -600,6 +647,8 @@ export async function getGenresOfMovie(movieTitle: string): Promise<IGenreRespon
         `;
         const result = await session.run(query, { movieTitle });
         return result.records.map(record => record.get('g').properties as IGenreResponse);
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve genres of movie '${movieTitle}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -623,17 +672,13 @@ export async function getStudioOfMovie(movieTitle: string): Promise<IStudioRespo
             const studioNode = result.records[0].get('s');
             return studioNode.properties as IStudioResponse;
         }
-        return null;
+        return null; // Controller will handle 404
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve studio of movie '${movieTitle}': ${error.message}`, error);
     } finally {
         await session.close();
     }
 }
-
-
-
-
-// --- Graph-Powered Discovery & Insights Services ---
-
 /**
  * Finds other actors who have acted in the same movie as a given actor.
  * @param {string} actorName - The name of the actor.
@@ -651,8 +696,11 @@ export async function getCoActors(actorName: string): Promise<ICoActorResponse[]
         const result = await session.run(query, { actorName });
         return result.records.map(record => ({
             name: record.get('name'),
+            // CORRECTED LINE: Use 'sharedMoviesCount' to match the ICoActorResponse interface
             sharedMoviesCount: record.get('sharedMoviesCount').toNumber() // Convert Neo4j Integer to JS number
         })) as ICoActorResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve co-actors for '${actorName}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -678,6 +726,8 @@ export async function getSharedMoviesBetweenActors(actor1Name: string, actor2Nam
             released: record.get('released'),
             tagline: record.get('tagline')
         })) as ISharedMovieResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve shared movies between '${actor1Name}' and '${actor2Name}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -702,7 +752,7 @@ export async function getShortestPathBetweenActors(actor1Name: string, actor2Nam
         const result = await session.run(query, { actor1Name, actor2Name });
 
         if (result.records.length === 0) {
-            return null; // No path found
+            return null; // No path found, controller will handle 404
         }
 
         const path = result.records[0].get('path');
@@ -750,13 +800,13 @@ export async function getShortestPathBetweenActors(actor1Name: string, actor2Nam
             length: path.length // Path length is a Neo4j Integer, but JavaScript handles it here
         };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Error finding shortest path between ${actor1Name} and ${actor2Name}:`, error);
         // Check if error is related to APOC not being installed
-        if (error instanceof neo4j.Neo4jError && error.code === 'Neo.ClientError.Procedure.ProcedureNotFound') {
-            throw new Error("APOC library not installed or configured on Neo4j. Shortest path feature requires APOC. " + error.message);
+        if (error.code === 'Neo.ClientError.Procedure.ProcedureNotFound') {
+            throw new DatabaseError("APOC library not installed or configured on Neo4j. Shortest path feature requires APOC.", error); // <-- THROW CUSTOM ERROR
         }
-        throw error; // Re-throw other errors
+        throw new DatabaseError(`Failed to find shortest path between '${actor1Name}' and '${actor2Name}': ${error.message}`, error); // <-- WRAP OTHER ERRORS
     } finally {
         await session.close();
     }
@@ -788,6 +838,8 @@ export async function recommendMoviesBySharedGenres(movieTitle: string): Promise
             tagline: record.get('tagline'),
             reason: `Shared Genres: ${record.get('sharedGenres').join(', ')}` // Provide a reason
         })) as IRecommendedMovieResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to recommend movies by shared genres for '${movieTitle}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -818,6 +870,8 @@ export async function recommendMoviesBySharedCastCrew(movieTitle: string): Promi
             tagline: record.get('tagline'),
             reason: `Shared Cast/Crew: ${record.get('sharedCastCrew').join(', ')}` // Provide a reason
         })) as IRecommendedMovieResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to recommend movies by shared cast/crew for '${movieTitle}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -844,6 +898,8 @@ export async function getTopNActorsByMovieCount(n: number = 10): Promise<ITopPer
             name: record.get('name'),
             movieCount: record.get('movieCount').toNumber()
         })) as ITopPersonResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve top actors: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -868,6 +924,8 @@ export async function getTopNDirectorsByMovieCount(n: number = 10): Promise<ITop
             name: record.get('name'),
             movieCount: record.get('movieCount').toNumber()
         })) as ITopPersonResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to retrieve top directors: ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -892,6 +950,8 @@ export async function findCommonDirectorsBetweenActors(actor1Name: string, actor
         return result.records.map(record => ({
             name: record.get('name')
         })) as ICommonDirectorResponse[];
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to find common directors between '${actor1Name}' and '${actor2Name}': ${error.message}`, error);
     } finally {
         await session.close();
     }
@@ -916,6 +976,8 @@ export async function findMoviesWithActorsFromGenre(genreName: string): Promise<
         `;
         const result = await session.run(query, { genreName });
         return result.records.map(record => record.get('m').properties as IMovieResponse);
+    } catch (error: any) {
+        throw new DatabaseError(`Failed to find movies with actors from genre '${genreName}': ${error.message}`, error);
     } finally {
         await session.close();
     }
